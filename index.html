@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>xG Graph — Research Topic Survey</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface-hover: #1a2332;
+    --border: #1e293b;
+    --text: #e2e8f0;
+    --text-muted: #8896ab;
+    --text-dim: #4a5568;
+    --accent: #3b82f6;
+    --accent-bright: #60a5fa;
+    --accent-glow: rgba(59, 130, 246, 0.15);
+    --green: #22c55e;
+    --green-dim: rgba(34, 197, 94, 0.12);
+    --red: #ef4444;
+    --red-dim: rgba(239, 68, 68, 0.12);
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.6; min-height: 100vh;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(10, 14, 23, 0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar-logo { font-weight: 700; font-size: 15px; letter-spacing: 0.5px; color: var(--accent-bright); }
+  .topbar-logo span { color: var(--text-muted); font-weight: 400; }
+  .progress-bar { display: flex; gap: 6px; align-items: center; }
+  .progress-dot {
+    width: 28px; height: 4px; border-radius: 2px;
+    background: var(--border); transition: all 0.4s ease;
+  }
+  .progress-dot.active { background: var(--accent); width: 40px; }
+  .progress-dot.done { background: var(--green); }
+  .progress-label {
+    font-size: 12px; color: var(--text-muted); margin-left: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Main ── */
+  .main { max-width: 720px; margin: 0 auto; padding: 100px 24px 60px; }
+  .page { display: none; animation: fadeUp 0.4s ease; }
+  .page.active { display: block; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Typography ── */
+  .page-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--accent); margin-bottom: 8px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+  }
+  h1 { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+  .subtitle { font-size: 15px; color: var(--text-muted); margin-bottom: 32px; max-width: 560px; }
+
+  /* ── Intro ── */
+  .intro-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 28px; margin-bottom: 20px;
+  }
+  .intro-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--accent-bright); }
+  .intro-card p { font-size: 14px; color: var(--text-muted); line-height: 1.7; }
+  .startup-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent-glow); border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px; padding: 6px 14px;
+    font-size: 14px; font-weight: 600; color: var(--accent-bright);
+    margin-bottom: 24px;
+  }
+  .time-estimate {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-dim); margin-top: 20px;
+  }
+
+  /* ── Free input (Page 1) ── */
+  .topic-input-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    margin-bottom: 10px; animation: fadeUp 0.3s ease;
+  }
+  .topic-input-row input[type="text"] {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--text); outline: none; transition: border-color 0.2s;
+  }
+  .topic-input-row input[type="text"]:focus { border-color: var(--accent); }
+  .topic-input-row input[type="text"]::placeholder { color: var(--text-dim); }
+
+  .relevance-control {
+    display: flex; gap: 3px; align-items: center;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; min-width: 170px;
+  }
+  .relevance-control span.label {
+    font-size: 11px; color: var(--text-dim); margin-right: 4px;
+    font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+  }
+  .rel-btn {
+    width: 30px; height: 30px; border: none; border-radius: 5px;
+    background: transparent; color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s ease;
+  }
+  .rel-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .rel-btn.selected { background: var(--accent); color: #fff; }
+
+  .remove-row-btn {
+    width: 36px; height: 42px; border: none; border-radius: 8px;
+    background: transparent; color: var(--text-dim);
+    font-size: 18px; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .remove-row-btn:hover { background: var(--red-dim); color: var(--red); }
+
+  .add-topic-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent; border: 1px dashed var(--border);
+    border-radius: 8px; padding: 10px 16px;
+    color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s; margin-top: 4px;
+  }
+  .add-topic-btn:hover {
+    border-color: var(--accent); color: var(--accent-bright); background: var(--accent-glow);
+  }
+
+  /* ── Suggestions (Page 2) ── */
+  .suggestion-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    margin-bottom: 10px; transition: all 0.2s;
+  }
+  .suggestion-card.confirmed { border-color: rgba(34, 197, 94, 0.4); background: var(--green-dim); }
+  .suggestion-card.removed { border-color: rgba(239, 68, 68, 0.3); background: var(--red-dim); opacity: 0.5; }
+  .suggestion-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;
+  }
+  .suggestion-title { font-weight: 600; font-size: 15px; }
+  .suggestion-domain {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-dim); background: rgba(255,255,255,0.04);
+    padding: 3px 8px; border-radius: 4px;
+  }
+  .suggestion-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+  .suggestion-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .action-btn {
+    padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif; font-size: 13px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .action-btn:hover { border-color: var(--text-muted); color: var(--text); }
+  .action-btn.confirm { border-color: rgba(34,197,94,0.4); color: var(--green); }
+  .action-btn.confirm:hover { background: var(--green-dim); }
+  .action-btn.confirm.active { background: var(--green-dim); border-color: var(--green); }
+  .action-btn.reject { border-color: rgba(239,68,68,0.3); color: var(--red); }
+  .action-btn.reject:hover { background: var(--red-dim); }
+  .action-btn.reject.active { background: var(--red-dim); border-color: var(--red); }
+
+  .weight-display {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-dim); margin-left: auto;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .weight-display input {
+    width: 50px; text-align: center; background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border); border-radius: 4px; padding: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px;
+    color: var(--text); outline: none;
+  }
+  .weight-display input:focus { border-color: var(--accent); }
+
+  /* ── Topic list (Page 3) ── */
+  .domain-group { margin-bottom: 24px; }
+  .domain-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 8px; padding-left: 2px;
+  }
+  .topic-checkbox {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px;
+    cursor: pointer; transition: background 0.15s; margin-bottom: 2px;
+  }
+  .topic-checkbox:hover { background: var(--surface-hover); }
+  .topic-checkbox.checked { background: var(--accent-glow); }
+  .topic-checkbox.pre-selected { background: var(--green-dim); cursor: default; }
+  .topic-checkbox input { display: none; }
+  .check-box {
+    width: 20px; height: 20px; border: 1.5px solid var(--border);
+    border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0; font-size: 12px; color: transparent;
+  }
+  .topic-checkbox.checked .check-box,
+  .topic-checkbox.pre-selected .check-box {
+    border-color: var(--accent); background: var(--accent); color: #fff;
+  }
+  .topic-checkbox.pre-selected .check-box { background: var(--green); border-color: var(--green); }
+  .topic-name { font-size: 14px; }
+  .topic-already {
+    font-size: 11px; color: var(--green);
+    font-family: 'JetBrains Mono', monospace; margin-left: auto;
+  }
+
+  /* ── Free text (Page 4) ── */
+  textarea {
+    width: 100%; min-height: 120px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--text); line-height: 1.6; resize: vertical; outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  /* ── Summary (Page 5) ── */
+  .summary-section { margin-bottom: 24px; }
+  .summary-section h3 {
+    font-size: 14px; font-weight: 600; color: var(--accent-bright); margin-bottom: 10px;
+  }
+  .summary-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: var(--surface);
+    border-radius: 8px; margin-bottom: 4px; font-size: 14px;
+  }
+  .summary-item .weight-badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--accent-glow); color: var(--accent-bright);
+    padding: 3px 10px; border-radius: 4px;
+  }
+  .summary-item .weight-badge.removed {
+    background: var(--red-dim); color: var(--red);
+  }
+
+  /* ── Nav ── */
+  .nav-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .nav-btn {
+    padding: 12px 28px; border-radius: 8px; border: none;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    font-weight: 600; cursor: pointer; transition: all 0.2s;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .nav-btn.secondary {
+    background: var(--surface); color: var(--text-muted); border: 1px solid var(--border);
+  }
+  .nav-btn.secondary:hover { border-color: var(--text-muted); color: var(--text); }
+  .nav-btn.primary { background: var(--accent); color: #fff; }
+  .nav-btn.primary:hover { background: #2563eb; }
+  .nav-btn.finish { background: var(--green); color: #fff; }
+  .nav-btn.finish:hover { background: #16a34a; }
+
+  /* ── Error page ── */
+  .error-page {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 80vh; text-align: center; padding: 24px;
+  }
+  .error-page h1 { font-size: 24px; margin-bottom: 12px; }
+  .error-page p { color: var(--text-muted); max-width: 400px; }
+
+  /* ── Thank you ── */
+  .thank-you { text-align: center; padding: 60px 0; }
+  .thank-you .check-circle {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: var(--green-dim); border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; color: var(--green); margin: 0 auto 24px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .topbar { padding: 0 16px; }
+    .main { padding: 80px 16px 40px; }
+    h1 { font-size: 22px; }
+    .topic-input-row { flex-wrap: wrap; }
+    .relevance-control { min-width: unset; flex: 1; }
+    .suggestion-actions { flex-direction: column; }
+    .weight-display { margin-left: 0; margin-top: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">xG-INCUBATOR <span>/ Research Topic Survey</span></div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="progress-bar" id="progress-bar"></div>
+    <div class="progress-label" id="progress-label"></div>
+  </div>
+</div>
+
+<div class="main" id="app"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
+
+const CONTACT_EMAIL = "felix.willems@tu-berlin.de"; // change this
+
+const STARTUPS = {
+  moxz: {
+    name: "MOXZ",
+    suggestions: [
+      { id: "integrated_sensing_comm", label: "Integrated Sensing & Communication (ISAC)", domain: "sensing", desc: "Dual-use of wireless signals for both data communication and environmental sensing/radar functions.", weight: 1.0 },
+      { id: "joint_comm_sensing", label: "Joint Communication-Sensing", domain: "sensing", desc: "Co-designed systems where communication and sensing share waveforms, hardware, and processing.", weight: 1.0 },
+      { id: "high_precision_positioning", label: "High-Precision Positioning", domain: "sensing", desc: "Sub-meter accuracy positioning using wireless signals, independent of GPS/GNSS.", weight: 0.9 },
+      { id: "autonomous_vehicles", label: "Autonomous Vehicle Networks", domain: "applications", desc: "V2X communication and sensing networks enabling connected and autonomous driving.", weight: 0.8 },
+      { id: "industrial_iot", label: "Industrial IoT (IIoT)", domain: "applications", desc: "Wireless connectivity solutions for industrial automation, monitoring, and control.", weight: 0.8 },
+    ]
+  },
+  airpuls: {
+    name: "airpuls",
+    suggestions: [
+      { id: "private_campus_networks", label: "Private / Campus Networks", domain: "applications", desc: "Dedicated, customizable wireless networks for enterprise, industrial, or research environments.", weight: 1.0 },
+      { id: "open_ran", label: "Open RAN Evolution", domain: "architecture", desc: "Disaggregated, interoperable radio access network architecture based on open interfaces and standards.", weight: 1.0 },
+      { id: "network_slicing", label: "Advanced Network Slicing", domain: "architecture", desc: "Creating multiple virtual networks on shared infrastructure, each tailored to specific requirements.", weight: 0.9 },
+      { id: "industrial_iot", label: "Industrial IoT (IIoT)", domain: "applications", desc: "Wireless connectivity solutions for industrial automation, monitoring, and control.", weight: 0.8 },
+      { id: "network_digital_twin", label: "Network Digital Twin", domain: "ai_ml", desc: "Virtual replicas of network infrastructure for planning, simulation, and optimization.", weight: 0.8 },
+      { id: "ai_ran_orchestration", label: "AI-RAN Orchestration", domain: "ai_ml", desc: "AI-driven management and optimization of radio access network resources and functions.", weight: 0.7 },
+      { id: "digital_twin_services", label: "Digital Twin Services", domain: "applications", desc: "Application-layer digital twins for monitoring and simulating physical systems and processes.", weight: 0.7 },
+    ]
+  },
+  massive_beams: {
+    name: "Massive Beams",
+    suggestions: [
+      { id: "open_ran", label: "Open RAN Evolution", domain: "architecture", desc: "Disaggregated, interoperable radio access network architecture based on open interfaces and standards.", weight: 1.0 },
+      { id: "software_defined_radio", label: "Software-Defined Radio (SDR)", domain: "devices", desc: "Radio systems where signal processing is implemented in software for maximum flexibility and reconfigurability.", weight: 0.9 },
+      { id: "ultra_massive_mimo", label: "Ultra-Massive MIMO", domain: "spectrum", desc: "Large-scale antenna arrays with hundreds or thousands of elements for spatial multiplexing and beamforming.", weight: 0.8 },
+      { id: "non_terrestrial_network", label: "Non-Terrestrial Networks (NTN)", domain: "architecture", desc: "Communication via satellites, drones, and high-altitude platforms to extend terrestrial coverage.", weight: 0.8 },
+      { id: "fr3_spectrum", label: "FR3 Spectrum (7–24 GHz)", domain: "spectrum", desc: "New frequency range between existing FR1 and FR2 bands, offering a balance of capacity and coverage.", weight: 0.7 },
+      { id: "antenna_package", label: "Antenna-in-Package (AiP)", domain: "devices", desc: "Compact antenna solutions integrated directly into chip packages for higher frequency operation.", weight: 0.7 },
+    ]
+  },
+  tilecore: {
+    name: "Tilecore",
+    suggestions: [
+      { id: "edge_ai", label: "Edge AI Processing", domain: "ai_ml", desc: "AI inference and processing deployed at the network edge, close to data sources.", weight: 0.9 },
+      { id: "neuromorphic_computing", label: "Neuromorphic Computing Hardware", domain: "devices", desc: "Brain-inspired computing architectures using analog or mixed-signal processing for efficiency.", weight: 0.9 },
+      { id: "chipset_design", label: "Advanced Chipset Design", domain: "devices", desc: "Design and fabrication of specialized processors, ASICs, and accelerators for communication systems.", weight: 0.9 },
+      { id: "energy_efficient_design", label: "Energy-Efficient Network Design", domain: "sustainability", desc: "Approaches to reducing energy consumption across network infrastructure and hardware.", weight: 0.9 },
+      { id: "ai_native_network", label: "AI-Native Network Design", domain: "ai_ml", desc: "Network architectures designed from the ground up to integrate AI as a core component.", weight: 0.8 },
+    ]
+  },
+  linque: {
+    name: "Linque",
+    suggestions: [
+      { id: "photonic_systems", label: "Photonic Systems & Integration", domain: "devices", desc: "Photonic integrated circuits and optical hardware platforms for communication and computing.", weight: 1.0 },
+      { id: "energy_efficient_design", label: "Energy-Efficient Network Design", domain: "sustainability", desc: "Approaches to reducing energy consumption across network infrastructure and hardware.", weight: 0.9 },
+      { id: "chipset_design", label: "Advanced Chipset Design", domain: "devices", desc: "Design and fabrication of specialized processors, ASICs, and accelerators for communication systems.", weight: 0.8 },
+      { id: "low_loss_materials", label: "Low-Loss Materials", domain: "devices", desc: "Materials with minimal signal attenuation for optical and RF components.", weight: 0.8 },
+      { id: "edge_ai", label: "Edge AI Processing", domain: "ai_ml", desc: "AI inference and processing deployed at the network edge, close to data sources.", weight: 0.7 },
+    ]
+  },
+  qusine: {
+    name: "QuSine",
+    suggestions: [
+      { id: "photonic_systems", label: "Photonic Systems & Integration", domain: "devices", desc: "Photonic integrated circuits and optical hardware platforms for communication and computing.", weight: 1.0 },
+      { id: "network_synchronization", label: "Network Synchronization & Timing", domain: "architecture", desc: "Ultra-precise timing and frequency references essential for network coordination and beamforming.", weight: 1.0 },
+      { id: "energy_efficient_design", label: "Energy-Efficient Network Design", domain: "sustainability", desc: "Approaches to reducing energy consumption across network infrastructure and hardware.", weight: 0.8 },
+      { id: "chipset_design", label: "Advanced Chipset Design", domain: "devices", desc: "Design and fabrication of specialized processors, ASICs, and accelerators for communication systems.", weight: 0.7 },
+      { id: "low_loss_materials", label: "Low-Loss Materials", domain: "devices", desc: "Materials with minimal signal attenuation for optical and RF components.", weight: 0.7 },
+    ]
+  },
+  "fiber-like": {
+    name: "Fiber-like",
+    suggestions: [
+      { id: "visible_light_comm", label: "Visible Light Communication", domain: "spectrum", desc: "Using visible or near-visible light spectrum for wireless data transmission.", weight: 1.0 },
+      { id: "optical_wireless_comm", label: "Optical Wireless Communication (LiFi)", domain: "spectrum", desc: "High-speed wireless communication using light, offering fiber-like performance without cables.", weight: 1.0 },
+      { id: "energy_efficient_design", label: "Energy-Efficient Network Design", domain: "sustainability", desc: "Approaches to reducing energy consumption across network infrastructure and hardware.", weight: 0.7 },
+      { id: "industrial_iot", label: "Industrial IoT (IIoT)", domain: "applications", desc: "Wireless connectivity solutions for industrial automation, monitoring, and control.", weight: 0.7 },
+      { id: "ultra_dense_networks", label: "Ultra-Dense Heterogeneous Networks", domain: "architecture", desc: "Extremely high density of access points for indoor and urban capacity demands.", weight: 0.7 },
+    ]
+  },
+  open_radio_systems: {
+    name: "Open Radio Systems",
+    suggestions: [
+      { id: "open_ran", label: "Open RAN Evolution", domain: "architecture", desc: "Disaggregated, interoperable radio access network architecture based on open interfaces and standards.", weight: 1.0 },
+      { id: "vran_acceleration", label: "vRAN & Hardware Acceleration", domain: "architecture", desc: "Hardware accelerators enabling virtualized RAN to achieve carrier-grade performance.", weight: 1.0 },
+      { id: "software_defined_radio", label: "Software-Defined Radio (SDR)", domain: "devices", desc: "Radio systems where signal processing is implemented in software for maximum flexibility.", weight: 0.8 },
+      { id: "chipset_design", label: "Advanced Chipset Design", domain: "devices", desc: "Design and fabrication of specialized processors, ASICs, and accelerators for communication systems.", weight: 0.8 },
+      { id: "energy_efficient_design", label: "Energy-Efficient Network Design", domain: "sustainability", desc: "Approaches to reducing energy consumption across network infrastructure and hardware.", weight: 0.8 },
+    ]
+  },
+  augusta_space: {
+    name: "Augusta Space",
+    suggestions: [
+      { id: "satellite_integration", label: "Integrated Satellite Communication", domain: "architecture", desc: "Systems connecting to multiple satellite networks across different orbits and frequencies.", weight: 1.0 },
+      { id: "non_terrestrial_network", label: "Non-Terrestrial Networks (NTN)", domain: "architecture", desc: "Communication via satellites, drones, and high-altitude platforms to extend terrestrial coverage.", weight: 0.9 },
+      { id: "antenna_package", label: "Antenna-in-Package (AiP)", domain: "devices", desc: "Compact antenna solutions integrated directly into chip packages for higher frequency operation.", weight: 0.9 },
+      { id: "space_air_ground", label: "Space-Air-Ground Integration", domain: "architecture", desc: "Unified networks spanning terrestrial, aerial, and space-based communication nodes.", weight: 0.8 },
+    ]
+  },
+  ciphercell: {
+    name: "CipherCell",
+    suggestions: [
+      { id: "physical_layer_security", label: "Physical Layer Security", domain: "security", desc: "Security mechanisms implemented at the radio/physical layer of communication systems.", weight: 1.0 },
+      { id: "open_ran", label: "Open RAN Evolution", domain: "architecture", desc: "Disaggregated, interoperable radio access network architecture based on open interfaces and standards.", weight: 0.9 },
+      { id: "zero_trust_architecture", label: "Zero Trust Network Architecture", domain: "security", desc: "Security model that requires verification for every access request regardless of network location.", weight: 0.8 },
+      { id: "quantum_encryption", label: "Quantum Key Distribution", domain: "security", desc: "Quantum-resistant and quantum-based encryption for future-proof communication security.", weight: 0.8 },
+      { id: "ai_ran_orchestration", label: "AI-RAN Orchestration", domain: "ai_ml", desc: "AI-driven management and optimization of radio access network resources and functions.", weight: 0.7 },
+    ]
+  }
+};
+
+const ALL_TOPICS = {
+  architecture: [
+    { id: "open_ran", label: "Open RAN Evolution" },
+    { id: "network_slicing", label: "Advanced Network Slicing" },
+    { id: "non_terrestrial_network", label: "Non-Terrestrial Networks (NTN)" },
+    { id: "satellite_integration", label: "Integrated Satellite Communication" },
+    { id: "space_air_ground", label: "Space-Air-Ground Integration" },
+    { id: "ultra_dense_networks", label: "Ultra-Dense Heterogeneous Networks" },
+    { id: "private_campus_networks", label: "Private / Campus Networks" },
+    { id: "network_synchronization", label: "Network Synchronization & Timing" },
+    { id: "vran_acceleration", label: "vRAN & Hardware Acceleration" },
+  ],
+  spectrum: [
+    { id: "fr3_spectrum", label: "FR3 Spectrum (7–24 GHz)" },
+    { id: "ultra_massive_mimo", label: "Ultra-Massive MIMO" },
+    { id: "visible_light_comm", label: "Visible Light Communication" },
+    { id: "optical_wireless_comm", label: "Optical Wireless Communication (LiFi)" },
+  ],
+  sensing: [
+    { id: "integrated_sensing_comm", label: "Integrated Sensing & Communication (ISAC)" },
+    { id: "joint_comm_sensing", label: "Joint Communication-Sensing" },
+    { id: "high_precision_positioning", label: "High-Precision Positioning" },
+  ],
+  ai_ml: [
+    { id: "ai_ran_orchestration", label: "AI-RAN Orchestration" },
+    { id: "edge_ai", label: "Edge AI Processing" },
+    { id: "ai_native_network", label: "AI-Native Network Design" },
+    { id: "network_digital_twin", label: "Network Digital Twin" },
+  ],
+  applications: [
+    { id: "autonomous_vehicles", label: "Autonomous Vehicle Networks" },
+    { id: "industrial_iot", label: "Industrial IoT (IIoT)" },
+    { id: "digital_twin_services", label: "Digital Twin Services" },
+    { id: "private_campus_networks", label: "Private / Campus Networks" },
+  ],
+  devices: [
+    { id: "photonic_systems", label: "Photonic Systems & Integration" },
+    { id: "chipset_design", label: "Advanced Chipset Design" },
+    { id: "antenna_package", label: "Antenna-in-Package (AiP)" },
+    { id: "neuromorphic_computing", label: "Neuromorphic Computing Hardware" },
+    { id: "low_loss_materials", label: "Low-Loss Materials" },
+    { id: "software_defined_radio", label: "Software-Defined Radio (SDR)" },
+  ],
+  security: [
+    { id: "zero_trust_architecture", label: "Zero Trust Network Architecture" },
+    { id: "quantum_encryption", label: "Quantum Key Distribution" },
+    { id: "physical_layer_security", label: "Physical Layer Security" },
+  ],
+  sustainability: [
+    { id: "energy_efficient_design", label: "Energy-Efficient Network Design" },
+  ],
+};
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+
+const params = new URLSearchParams(window.location.search);
+const startupKey = params.get('startup');
+const startup = STARTUPS[startupKey];
+const app = document.getElementById('app');
+
+if (!startup) {
+  document.getElementById('progress-bar').style.display = 'none';
+  document.getElementById('progress-label').style.display = 'none';
+  app.innerHTML = `
+    <div class="error-page">
+      <h1>Survey not found</h1>
+      <p>This link doesn't match any startup in our system. Please check the URL you were sent and try again, or contact us at <a href="mailto:${CONTACT_EMAIL}" style="color:var(--accent-bright)">${CONTACT_EMAIL}</a></p>
+    </div>`;
+} else {
+  initSurvey();
+}
+
+function initSurvey() {
+  // Build progress dots
+  const bar = document.getElementById('progress-bar');
+  for (let i = 0; i < 6; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'progress-dot' + (i === 0 ? ' active' : '');
+    dot.id = `dot-${i}`;
+    bar.appendChild(dot);
+  }
+  document.getElementById('progress-label').textContent = '1 / 6';
+
+  const suggestedIds = new Set(startup.suggestions.map(s => s.id));
+
+  // Build suggestion cards HTML
+  let suggestionsHTML = '';
+  startup.suggestions.forEach(s => {
+    suggestionsHTML += `
+      <div class="suggestion-card" data-topic="${s.id}">
+        <div class="suggestion-header">
+          <span class="suggestion-title">${s.label}</span>
+          <span class="suggestion-domain">${s.domain}</span>
+        </div>
+        <div class="suggestion-desc">${s.desc}</div>
+        <div class="suggestion-actions">
+          <button class="action-btn confirm" onclick="toggleSuggestion(this,'confirm')">✓ Confirm</button>
+          <button class="action-btn reject" onclick="toggleSuggestion(this,'reject')">✗ Remove</button>
+          <div class="weight-display">
+            weight: <input type="number" min="0" max="1" step="0.1" value="${s.weight}" />
+          </div>
+        </div>
+      </div>`;
+  });
+
+  // Build full topic list HTML, marking pre-selected ones
+  let topicListHTML = '';
+  const domainLabels = {
+    architecture: 'Architecture', spectrum: 'Spectrum', sensing: 'Sensing',
+    ai_ml: 'AI / ML', applications: 'Applications', devices: 'Devices & Hardware',
+    security: 'Security', sustainability: 'Sustainability'
+  };
+  const seen = new Set();
+  Object.entries(ALL_TOPICS).forEach(([domain, topics]) => {
+    topicListHTML += `<div class="domain-group"><div class="domain-label">${domainLabels[domain]}</div>`;
+    topics.forEach(t => {
+      if (seen.has(t.id)) return;
+      seen.add(t.id);
+      if (suggestedIds.has(t.id)) {
+        topicListHTML += `
+          <label class="topic-checkbox pre-selected">
+            <input type="checkbox" checked disabled>
+            <div class="check-box">✓</div>
+            <span class="topic-name">${t.label}</span>
+            <span class="topic-already">already added</span>
+          </label>`;
+      } else {
+        topicListHTML += `
+          <label class="topic-checkbox" onclick="toggleCheck(this)">
+            <input type="checkbox" value="${t.id}" data-label="${t.label}">
+            <div class="check-box">✓</div>
+            <span class="topic-name">${t.label}</span>
+          </label>`;
+      }
+    });
+    topicListHTML += '</div>';
+  });
+
+  app.innerHTML = `
+    <!-- PAGE 0: INTRO -->
+    <div class="page active" id="page-0">
+      <div class="page-number">Welcome</div>
+      <h1>Help us map your research landscape</h1>
+      <p class="subtitle">We're building the xG Graph — an interactive visualization of how xG-Incubator startups connect to 6G research topics. Your input ensures we represent your work accurately.</p>
+      <div class="startup-badge">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        Responding as: ${startup.name}
+      </div>
+      <div class="intro-card">
+        <h3>What is the xG Graph?</h3>
+        <p>A network visualization showing the connections between xG-Incubator startups and 6G research topics. Each startup is linked to the research areas most relevant to their work, revealing shared interests and potential collaborations across the portfolio.</p>
+      </div>
+      <div class="intro-card">
+        <h3>What we're asking</h3>
+        <p>We'd like you to identify the research topics most relevant to your startup, rate their importance, and review the connections we've suggested based on our own research. This helps us create the most accurate picture possible.</p>
+      </div>
+      <div class="time-estimate">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        Estimated time: 5–10 minutes
+      </div>
+      <div class="nav-bar">
+        <div></div>
+        <button class="nav-btn primary" onclick="goTo(1)">Get started →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 1: OPEN PROMPT -->
+    <div class="page" id="page-1">
+      <div class="page-number">Step 1 of 5</div>
+      <h1>What research topics define your work?</h1>
+      <p class="subtitle">Before we show you anything, we'd like to hear from you directly. List the research areas most central to what ${startup.name} does, and rate how relevant each one is.</p>
+      <div id="free-topics">
+        <div class="topic-input-row">
+          <input type="text" placeholder="e.g. Photonic integrated circuits" />
+          <div class="relevance-control">
+            <span class="label">Relevance</span>
+            <button class="rel-btn" onclick="setRel(this,1)">1</button>
+            <button class="rel-btn" onclick="setRel(this,2)">2</button>
+            <button class="rel-btn" onclick="setRel(this,3)">3</button>
+            <button class="rel-btn selected" onclick="setRel(this,4)">4</button>
+            <button class="rel-btn" onclick="setRel(this,5)">5</button>
+          </div>
+          <button class="remove-row-btn" onclick="removeRow(this)">×</button>
+        </div>
+        <div class="topic-input-row">
+          <input type="text" placeholder="Add another topic..." />
+          <div class="relevance-control">
+            <span class="label">Relevance</span>
+            <button class="rel-btn" onclick="setRel(this,1)">1</button>
+            <button class="rel-btn" onclick="setRel(this,2)">2</button>
+            <button class="rel-btn" onclick="setRel(this,3)">3</button>
+            <button class="rel-btn selected" onclick="setRel(this,4)">4</button>
+            <button class="rel-btn" onclick="setRel(this,5)">5</button>
+          </div>
+          <button class="remove-row-btn" onclick="removeRow(this)">×</button>
+        </div>
+      </div>
+      <button class="add-topic-btn" onclick="addRow()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add another topic
+      </button>
+      <div style="margin-top:20px;font-size:12px;color:var(--text-dim)">
+        1 = tangentially related &nbsp;·&nbsp; 3 = relevant &nbsp;·&nbsp; 5 = defines our core work
+      </div>
+      <div class="nav-bar">
+        <button class="nav-btn secondary" onclick="goTo(0)">← Back</button>
+        <button class="nav-btn primary" onclick="goTo(2)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 2: OUR SUGGESTIONS -->
+    <div class="page" id="page-2">
+      <div class="page-number">Step 2 of 5</div>
+      <h1>Our suggested topics for ${startup.name}</h1>
+      <p class="subtitle">Based on our research, we've identified these as relevant to your work. Please confirm, adjust the weight, or remove any that don't fit.</p>
+      <div id="suggestions">${suggestionsHTML}</div>
+      <div class="nav-bar">
+        <button class="nav-btn secondary" onclick="goTo(1)">← Back</button>
+        <button class="nav-btn primary" onclick="goTo(3)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 3: FULL TOPIC LIST -->
+    <div class="page" id="page-3">
+      <div class="page-number">Step 3 of 5</div>
+      <h1>Anything else we missed?</h1>
+      <p class="subtitle">Browse the full list of research topics in the network. Select any additional ones relevant to ${startup.name} that weren't covered above.</p>
+      ${topicListHTML}
+      <div class="nav-bar">
+        <button class="nav-btn secondary" onclick="goTo(2)">← Back</button>
+        <button class="nav-btn primary" onclick="goTo(4)">Continue →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 4: FREE TEXT -->
+    <div class="page" id="page-4">
+      <div class="page-number">Step 4 of 5</div>
+      <h1>Anything missing entirely?</h1>
+      <p class="subtitle">Is there a research area central to ${startup.name}'s work that wasn't in any of the lists above? Suggest entirely new topics for the network.</p>
+      <textarea id="free-text" placeholder="e.g. 'We work heavily in silicon photonics manufacturing processes, which doesn't quite fit any of the listed topics...'"></textarea>
+      <div class="nav-bar">
+        <button class="nav-btn secondary" onclick="goTo(3)">← Back</button>
+        <button class="nav-btn primary" onclick="buildSummary(); goTo(5)">Review & finish →</button>
+      </div>
+    </div>
+
+    <!-- PAGE 5: SUMMARY -->
+    <div class="page" id="page-5">
+      <div class="page-number">Step 5 of 5</div>
+      <h1>Review your responses</h1>
+      <p class="subtitle">Here's a summary of everything you've provided. If it looks good, click the button below to send it to us via email.</p>
+      <div id="summary-content"></div>
+      <div class="nav-bar">
+        <button class="nav-btn secondary" onclick="goTo(4)">← Back</button>
+        <a class="nav-btn finish" id="email-btn" href="#">Send via email ✓</a>
+      </div>
+      <div id="thank-you" style="display:none">
+        <div class="thank-you">
+          <div class="check-circle">✓</div>
+          <h1>Thank you!</h1>
+          <p class="subtitle" style="margin:0 auto">Your responses have been prepared. If your email client opened, just hit send. Otherwise, you can copy the text below and email it to <strong>${CONTACT_EMAIL}</strong></p>
+          <textarea id="fallback-text" style="margin-top:24px;min-height:200px;font-size:12px;font-family:'JetBrains Mono',monospace"></textarea>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════
+// INTERACTIONS
+// ═══════════════════════════════════════════
+
+let currentPage = 0;
+
+function goTo(n) {
+  document.getElementById(`page-${currentPage}`).classList.remove('active');
+  document.getElementById(`page-${n}`).classList.add('active');
+  for (let i = 0; i < 6; i++) {
+    const dot = document.getElementById(`dot-${i}`);
+    if (!dot) continue;
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    if (i === n) dot.classList.add('active');
+  }
+  document.getElementById('progress-label').textContent = `${n + 1} / 6`;
+  currentPage = n;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setRel(btn, val) {
+  btn.parentElement.querySelectorAll('.rel-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function removeRow(btn) {
+  const row = btn.closest('.topic-input-row');
+  if (document.querySelectorAll('.topic-input-row').length > 1) {
+    row.style.opacity = '0'; row.style.transform = 'translateX(20px)';
+    row.style.transition = 'all 0.2s ease';
+    setTimeout(() => row.remove(), 200);
+  }
+}
+
+function addRow() {
+  const container = document.getElementById('free-topics');
+  const row = document.createElement('div');
+  row.className = 'topic-input-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Add another topic..." />
+    <div class="relevance-control"><span class="label">Relevance</span>
+      <button class="rel-btn" onclick="setRel(this,1)">1</button>
+      <button class="rel-btn" onclick="setRel(this,2)">2</button>
+      <button class="rel-btn" onclick="setRel(this,3)">3</button>
+      <button class="rel-btn selected" onclick="setRel(this,4)">4</button>
+      <button class="rel-btn" onclick="setRel(this,5)">5</button>
+    </div>
+    <button class="remove-row-btn" onclick="removeRow(this)">×</button>`;
+  container.appendChild(row);
+}
+
+function toggleSuggestion(btn, type) {
+  const card = btn.closest('.suggestion-card');
+  const confirmBtn = card.querySelector('.action-btn.confirm');
+  const rejectBtn = card.querySelector('.action-btn.reject');
+  if (type === 'confirm') {
+    const active = confirmBtn.classList.contains('active');
+    confirmBtn.classList.toggle('active', !active);
+    rejectBtn.classList.remove('active');
+    card.classList.toggle('confirmed', !active);
+    card.classList.remove('removed');
+  } else {
+    const active = rejectBtn.classList.contains('active');
+    rejectBtn.classList.toggle('active', !active);
+    confirmBtn.classList.remove('active');
+    card.classList.toggle('removed', !active);
+    card.classList.remove('confirmed');
+  }
+}
+
+function toggleCheck(label) {
+  if (label.querySelector('.topic-already')) return;
+  const cb = label.querySelector('input');
+  cb.checked = !cb.checked;
+  label.classList.toggle('checked', cb.checked);
+}
+
+function buildSummary() {
+  let summaryHTML = '';
+  let emailLines = [`xG Graph Survey Response — ${startup.name}`, ''];
+
+  // 1. Free topics
+  summaryHTML += '<div class="summary-section"><h3>Your topics (unprompted)</h3>';
+  emailLines.push('== YOUR TOPICS (UNPROMPTED) ==');
+  document.querySelectorAll('#free-topics .topic-input-row').forEach(row => {
+    const text = row.querySelector('input[type="text"]').value.trim();
+    const sel = row.querySelector('.rel-btn.selected');
+    const val = sel ? sel.textContent : '4';
+    if (text) {
+      summaryHTML += `<div class="summary-item"><span>${text}</span><span class="weight-badge">${val}/5</span></div>`;
+      emailLines.push(`  ${text} — relevance: ${val}/5`);
+    }
+  });
+  summaryHTML += '</div>';
+  emailLines.push('');
+
+  // 2. Suggestions
+  summaryHTML += '<div class="summary-section"><h3>Our suggestions — your response</h3>';
+  emailLines.push('== OUR SUGGESTIONS — YOUR RESPONSE ==');
+  document.querySelectorAll('.suggestion-card').forEach(card => {
+    const name = card.querySelector('.suggestion-title').textContent;
+    const confirmed = card.classList.contains('confirmed');
+    const removed = card.classList.contains('removed');
+    const weight = card.querySelector('.weight-display input').value;
+    let status, badgeClass = '';
+    if (removed) { status = '✗ removed'; badgeClass = ' removed'; }
+    else if (confirmed) { status = `✓ confirmed (${weight})`; }
+    else { status = `no response (${weight})`; }
+    summaryHTML += `<div class="summary-item"><span>${name}</span><span class="weight-badge${badgeClass}">${status}</span></div>`;
+    emailLines.push(`  ${name} — ${status}`);
+  });
+  summaryHTML += '</div>';
+  emailLines.push('');
+
+  // 3. Additional
+  const extras = [];
+  document.querySelectorAll('#page-3 .topic-checkbox:not(.pre-selected) input:checked').forEach(cb => {
+    extras.push(cb.getAttribute('data-label'));
+  });
+  if (extras.length) {
+    summaryHTML += '<div class="summary-section"><h3>Additional topics selected</h3>';
+    emailLines.push('== ADDITIONAL TOPICS SELECTED ==');
+    extras.forEach(name => {
+      summaryHTML += `<div class="summary-item"><span>${name}</span></div>`;
+      emailLines.push(`  ${name}`);
+    });
+    summaryHTML += '</div>';
+    emailLines.push('');
+  }
+
+  // 4. Free text
+  const freeText = document.getElementById('free-text').value.trim();
+  if (freeText) {
+    summaryHTML += `<div class="summary-section"><h3>Additional comments</h3><div class="summary-item"><span>${freeText}</span></div></div>`;
+    emailLines.push('== ADDITIONAL COMMENTS ==');
+    emailLines.push(`  ${freeText}`);
+    emailLines.push('');
+  }
+
+  document.getElementById('summary-content').innerHTML = summaryHTML;
+
+  // Build email link
+  const subject = encodeURIComponent(`xG Graph Survey Response — ${startup.name}`);
+  const body = encodeURIComponent(emailLines.join('\n'));
+  document.getElementById('email-btn').href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+  document.getElementById('email-btn').onclick = function() {
+    setTimeout(() => {
+      document.querySelector('.nav-bar:last-of-type').style.display = 'none';
+      document.getElementById('thank-you').style.display = 'block';
+      document.getElementById('fallback-text').value = emailLines.join('\n');
+    }, 500);
+  };
+}
+</script>
+</body>
+</html>
